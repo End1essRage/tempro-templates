@@ -13,10 +13,10 @@
 					]
 				}
 			],
-			"assets": [
+			"shards": [
 				{
 					"name": "vault",
-					"path": "go/assets/vault"
+					"path": "go/shards/vault"
 				}
 			]
 		}
