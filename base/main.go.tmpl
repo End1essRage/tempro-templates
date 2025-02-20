@@ -1,0 +1,45 @@
+package main
+
+import (
+	"os"
+
+	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	Env string
+)
+
+const (
+	ENV_DEBUG = "ENV_DEBUG"
+	ENV_DEV   = "ENV_DEV"
+	ENV_PROD  = "ENV_PROD"
+)
+
+func init() {
+	logrus.SetFormatter(&logrus.TextFormatter{})
+
+	Env = os.Getenv("ENV")
+	if Env == "" {
+		if err := godotenv.Load(); err != nil {
+			logrus.Warning("error while reading environment", err.Error())
+		}
+	}
+
+	Env = os.Getenv("ENV")
+	if Env == "" {
+		logrus.Warn("cant set environment, setting to dev by default")
+		Env = ENV_DEV
+	}
+
+	if Env == ENV_DEBUG {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	logrus.Debug("ENVIRONMENT IS " + Env)
+}
+
+func main() {
+
+}

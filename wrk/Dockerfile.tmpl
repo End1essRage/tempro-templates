@@ -1,0 +1,26 @@
+# Используем образ golang для сборки
+FROM artifactory.gitlab.bcs.ru/docker-local/golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/{{.ModuleName}} .
+
+FROM artifactory.gitlab.bcs.ru/docker-local/alpine:3.18
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем собранный бинарник из этапа сборки
+COPY --from=builder /app/{{.ModuleName}} .
+
+EXPOSE 80
+EXPOSE 443
+EXPOSE 25
+
+CMD ["./{{.ModuleName}}"]
+

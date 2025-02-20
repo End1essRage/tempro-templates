@@ -1,0 +1,131 @@
+package main
+
+import (
+	"io"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"github.com/alexliesenfeld/health"
+	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	Env   string
+	Debug bool // 1, true, True
+)
+
+const (
+	ENV_DEV  = "ENV_DEV"  // for local deploy, mocking services
+	ENV_TEST = "ENV_TEST" // for deploy on test
+	ENV_PROD = "ENV_PROD"
+)
+
+type Config struct {
+	ENV   string
+	DEBUG bool
+
+var logger = logrus.WithFields(logrus.Fields{
+	"serviceName": "{{.ModuleName}}",
+	"logtype":     "logtypeT",
+	"traceId":     "", //телеметрия
+	"spanId":      "", //телеметрия
+})
+
+func init() {
+	// Настройка формата вывода (JSON)
+	logrus.SetFormatter(&logrus.JSONFormatter{
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyTime:  "timestamp",
+			logrus.FieldKeyLevel: "level",
+			logrus.FieldKeyMsg:   "message",
+			logrus.FieldKeyFunc:  "caller",
+		},
+	})
+
+	Env = os.Getenv("ENV")
+	if Env == "" {
+		if err := godotenv.Load(); err != nil {
+			logger.Warning("error while reading environment", err.Error())
+		}
+	}
+
+	Env = os.Getenv("ENV")
+	if Env == "" {
+		logger.Warn("cant set environment, setting to test by default")
+		Env = ENV_TEST
+	}
+
+	Debug = os.Getenv("DEBUG") == "1" || os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "True"
+
+	//уровень логирования
+	logrus.SetLevel(logrus.InfoLevel)
+	if Debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	//при локальном запуске логи пишутся в файл
+	if Env == ENV_DEV {
+		// Создаем папку для логов
+		if err := os.MkdirAll("logs", 0755); err != nil {
+			logrus.Fatalf("Failed to create logs directory: %v", err)
+		}
+
+		// Генерируем имя файла на основе времени запуска
+		filename := time.Now().Format("2006-01-02_15-04-05") + ".log"
+		filePath := filepath.Join("logs", filename)
+
+		// Создаем/открываем файл логов
+		logFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			logrus.Fatalf("Failed to open log file: %v", err)
+		}
+
+		// Настраиваем вывод в файл и консоль
+		logrus.SetOutput(io.MultiWriter(os.Stdout, logFile))
+	}
+}
+
+// загрузка переменных окружения
+func loadCfg() *Config {
+	res := &Config{}
+
+	res.ENV = Env
+	res.DEBUG = Debug
+
+	return res
+}
+
+func main() {
+
+	checker := health.NewChecker(
+
+		health.WithCacheDuration(1*time.Second),
+
+		health.WithTimeout(10*time.Second),
+
+		health.WithCheck(health.Check{
+			Name:    "server",     
+			Timeout: 2 * time.Second,
+			Check:   Health,
+		}),
+	)
+
+	http.Handle("/health", health.NewHandler(checker))
+	logger.Fatalln(http.ListenAndServe(":3000", nil))
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("stopped")
+}
+
+func Health(ctx context.Context) error {
+	return nil
+}

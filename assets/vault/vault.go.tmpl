@@ -1,0 +1,75 @@
+package main
+
+import (
+	"context"
+	"fmt"
+
+	vault "github.com/hashicorp/vault/api"
+	auth "github.com/hashicorp/vault/api/auth/kubernetes"
+)
+
+const ServiceAccountTokenPath = "../var/run/secrets/kubernetes.io/serviceaccount/token"
+
+type Credentials struct {
+}
+
+type Vault struct {
+	cfg *Config
+}
+
+func NewVault(cfg *Config) *Vault {
+	return &Vault{cfg: cfg}
+}
+
+func (v *Vault) GetCredentials() (Credentials, error) {
+	creds := Credentials{}
+
+	//set config
+	config := vault.DefaultConfig()
+	config.Address = v.cfg.VAULT_SERVER
+
+	//create client
+	client, err := vault.NewClient(config)
+	if err != nil {
+		return creds, fmt.Errorf("unable to initialize Vault client: %w", err)
+	}
+
+	//set auth
+	k8sAuth, err := auth.NewKubernetesAuth(
+		v.cfg.VAULT_ROLE_NAME,
+		auth.WithServiceAccountTokenPath(ServiceAccountTokenPath),
+	)
+	if err != nil {
+		return creds, fmt.Errorf("unable to initialize Kubernetes auth method: %w", err)
+	}
+
+	authInfo, err := client.Auth().Login(context.TODO(), k8sAuth)
+	if err != nil {
+		return creds, fmt.Errorf("unable to log in with Kubernetes auth: %w", err)
+	}
+	if authInfo == nil {
+		return creds, fmt.Errorf("no auth info was returned after login")
+	}
+	//get secret
+	secret, err := client.KVv2(v.cfg.VAULT_SECRET_PATH).Get(context.Background(), "creds")
+	if err != nil {
+		return creds, fmt.Errorf("unable to read secret: %w", err)
+	}
+
+	//extrude data
+	return extrudeDataFromSecret(v.cfg, secret)
+}
+
+func extrudeDataFromSecret(cfg *Config, secret *vault.KVSecret) (Credentials, error) {
+	creds := Credentials{}
+
+	/*
+		spVal, ok := secret.Data[cfg.SECRET_KEY_SMTP_PWD].(string)
+		if !ok {
+			return creds, fmt.Errorf("value type assertion failed: %T %#v", secret.Data[cfg.SECRET_KEY_SMTP_PWD], secret.Data[cfg.SECRET_KEY_SMTP_PWD])
+		}
+		creds.SmtpPwd = spVal
+	*/
+
+	return creds, nil
+}

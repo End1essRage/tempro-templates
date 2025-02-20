@@ -1,0 +1,13 @@
+{
+	"template": {
+		"targetFile": "main.go",
+		"insertAfter": "func loadCfg() {",
+		"code": [
+			"// Auto-generated vault config",
+			"res.VAULT_SERVER = requireEnv(\"VAULT_SERVER\")",
+			"res.VAULT_SECRET_PATH = requireEnv(\"VAULT_SECRET_PATH\")",
+			"res.VAULT_MOUNT_POINT = os.Getenv(\"VAULT_MOUNT_POINT\")",
+			"res.VAULT_ROLE_NAME = os.Getenv(\"VAULT_ROLE_NAME\")"
+		]
+	}
+}
