@@ -1,0 +1,24 @@
+{
+	"langs": [
+		{
+			"name": "go",
+			"templates": [
+				{
+					"path": "go/base"
+				},
+				{
+					"path": "go/wrk",
+					"assets": [
+						"vault"
+					]
+				}
+			],
+			"assets": [
+				{
+					"name": "vault",
+					"path": "go/assets/vault"
+				}
+			]
+		}
+	]
+}
